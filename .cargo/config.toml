@@ -1,0 +1,110 @@
+# ============================================================================
+# .cargo/config.toml
+#
+# Workspace-wide Cargo configuration. Applies to every crate built from
+# within os-project/ (and subdirectories), on top of rust-toolchain.toml.
+#
+# Responsibilities of this file:
+#   1. Enable building core/alloc from source (`-Z build-std`), required
+#      because our custom JSON targets (targets/*.json) have no prebuilt
+#      std/core shipped by rustup.
+#   2. Provide per-target linker/runner configuration so `cargo build
+#      --target targets/x86_64-hal.json` and `cargo run` (via QEMU) work
+#      without extra flags typed by hand every time.
+#   3. Keep the *default* host build (no --target passed) completely
+#      unaffected, so `cargo test` on hal-core/hal-manifest/hal-direct
+#      keeps working normally on the developer's own machine (see
+#      WORKSPACE.md, "default-members").
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Unstable flags (require the nightly toolchain pinned in rust-toolchain.toml)
+# ----------------------------------------------------------------------------
+[unstable]
+# Recompile `core` and `alloc` from source for our custom no_std targets.
+# This is mandatory: targets/x86_64-hal.json etc. are not known to rustup,
+# so there is no prebuilt core/alloc for them — Cargo has to build its own.
+build-std = ["core", "alloc"]
+
+# Core/alloc built for a bare-metal target must not assume panic=unwind
+# support (no unwind tables, no landing pads). Matches `panic = "abort"`
+# in the workspace Cargo.toml profiles.
+build-std-features = ["panic_immediate_abort"]
+
+# ----------------------------------------------------------------------------
+# x86_64 bare-metal target
+# ----------------------------------------------------------------------------
+[target.'cfg(target_arch = "x86_64")']
+# Only takes effect when explicitly building with
+# --target targets/x86_64-hal.json ; does not affect normal host builds
+# on an x86_64 development machine (host target triples like
+# x86_64-unknown-linux-gnu / x86_64-pc-windows-msvc are not matched by
+# our custom JSON target path, only by this cfg — see note below).
+runner = "qemu-system-x86_64 -serial stdio -display none -kernel"
+
+# ----------------------------------------------------------------------------
+# ARM64 (AArch64) bare-metal target
+# ----------------------------------------------------------------------------
+[target.'cfg(target_arch = "aarch64")']
+runner = "qemu-system-aarch64 -M virt -cpu cortex-a72 -serial stdio -display none -kernel"
+
+# ----------------------------------------------------------------------------
+# RISC-V (RV64GC) bare-metal target
+# ----------------------------------------------------------------------------
+[target.'cfg(target_arch = "riscv64")']
+runner = "qemu-system-riscv64 -M virt -serial stdio -display none -kernel"
+
+# ----------------------------------------------------------------------------
+# Linker configuration per architecture crate
+#
+# NOTE: these sections key on the *custom target name* (the file stem of
+# targets/x86_64-hal.json, i.e. "x86_64-hal"), not on a built-in triple.
+# Cargo matches custom JSON targets by their file name when passed via
+# --target targets/x86_64-hal.json, so the section name below must match
+# exactly. This keeps per-target linker scripts isolated per architecture
+# crate (hal-x86_64/linker.ld, hal-arm64/linker.ld, hal-riscv64/linker.ld)
+# without leaking flags into unrelated targets.
+# ----------------------------------------------------------------------------
+[target.x86_64-hal]
+rustflags = [
+    "-C", "link-arg=-Thal/hal-x86_64/linker.ld",
+    "-C", "relocation-model=static",
+    # Disable red zone: interrupt/exception handlers run without a safe
+    # 128-byte scratch area below RSP: with red zone enabled, an
+    # interrupt firing mid-function could corrupt caller data below RSP.
+    "-C", "target-feature=-red-zone",
+]
+
+[target.aarch64-hal]
+rustflags = [
+    "-C", "link-arg=-Thal/hal-arm64/linker.ld",
+    "-C", "relocation-model=static",
+]
+
+[target.riscv64gc-hal]
+rustflags = [
+    "-C", "link-arg=-Thal/hal-riscv64/linker.ld",
+    "-C", "relocation-model=static",
+]
+
+# ----------------------------------------------------------------------------
+# Convenience aliases
+#
+# These let contributors type `cargo xbuild-x86_64` instead of the full
+# `cargo build -p hal-x86_64 --target targets/x86_64-hal.json` incantation.
+# Purely ergonomic; do not change build semantics.
+# ----------------------------------------------------------------------------
+[alias]
+xbuild-x86_64  = "build -p hal-x86_64  --target targets/x86_64-hal.json"
+xbuild-arm64   = "build -p hal-arm64   --target targets/aarch64-hal.json"
+xbuild-riscv64 = "build -p hal-riscv64 --target targets/riscv64gc-hal.json"
+
+# ----------------------------------------------------------------------------
+# Host build behavior (no --target passed)
+#
+# Intentionally left with no [build] table / no default target override:
+# a plain `cargo build` or `cargo test` at the workspace root must keep
+# targeting the developer's native host triple, so that hal-core /
+# hal-manifest / hal-direct unit tests (mock hardware, per WORKSPACE.md)
+# run normally without cross-compilation.
+# ----------------------------------------------------------------------------
