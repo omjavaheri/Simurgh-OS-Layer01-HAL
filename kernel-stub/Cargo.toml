@@ -1,0 +1,53 @@
+# ============================================================================
+# kernel-stub
+#
+# The minimal microkernel stand-in required by 01-HAL-Layer.md section 8,
+# MVP acceptance criterion 3:
+#   "تحویل کنترل به یک stub میکروکرنل (فعلاً فقط چاپ 'hello from kernel'
+#    روی سریال)"
+#
+# This crate provides the `kernel_main` symbol that hal-x86_64's
+# `hal_x86_64_rust_entry` (lib.rs) calls via `extern "Rust"` after HAL
+# has finished its own boot sequence (CPU/memory/timer/interrupt/
+# compute/power discovery, BootInfo assembly). It exists purely to let
+# this project's Phase 1 (HAL layer) be tested end-to-end on real QEMU
+# boot — per section 0, in the REAL system this symbol will eventually
+# be provided by the actual microkernel (layer 2, 02-Microkernel-
+# Layer.md), not by this crate.
+#
+# This crate is the actual TOP-LEVEL BINARY CRATE for the bootable
+# image: it depends on hal-x86_64 (which provides `_start` via boot.S
+# and staticlib output) and is itself built with the same custom target
+# and linker script, producing the final ELF that QEMU loads.
+# ============================================================================
+
+[package]
+name        = "kernel-stub"
+description = "Minimal microkernel stand-in for Phase 1 HAL boot testing (01-HAL-Layer.md section 8.3)"
+edition.workspace    = true
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+repository.workspace = true
+
+[[bin]]
+name = "kernel-stub"
+path = "src/main.rs"
+
+[dependencies]
+hal-core     = { path = "../hal/hal-core" }
+hal-manifest = { path = "../hal/hal-manifest", default-features = false }
+
+# Pulled in unconditionally (not behind a feature) here, since
+# kernel-stub's whole purpose is producing a bootable image, and the
+# x86_64 image needs hal-x86_64 linked in to get `_start`/boot.S. Once
+# arm64/riscv64 architecture crates exist, this will need per-target
+# conditional dependencies (tracked as a follow-up once hal-arm64/
+# hal-riscv64 reach the same completeness as hal-x86_64) — for now,
+# kernel-stub is x86_64-only, matching the fact that hal-x86_64 is the
+# only architecture crate implemented so far in this project's Phase 1.
+hal-x86_64 = { path = "../hal/hal-x86_64" }
+
+[package.metadata.hal]
+# Same documentation-as-data convention as hal-x86_64/Cargo.toml.
+target = "targets/x86_64-hal.json"
