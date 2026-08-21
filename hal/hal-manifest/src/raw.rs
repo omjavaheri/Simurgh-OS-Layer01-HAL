@@ -485,11 +485,26 @@ const _: () = {
     // surprises; asserting a concrete size here means any future field
     // addition/removal is a deliberate, visible change to this
     // constant rather than a silent ABI shift.
+    // MemoryRegionRaw: base_addr(8) + length_bytes(8) + kind(1) + behind_iommu(1) + _reserved(6) = 24
     assert!(core::mem::size_of::<MemoryRegionRaw>() == 24);
-    assert!(core::mem::size_of::<ComputeDeviceRaw>() == 96);
+    // ComputeDeviceRaw: 
+    // kind(1) + _pad0(3) + vendor(4) + has_dedicated_memory(1) + _pad1(7) + 
+    // dedicated_memory_bytes(8) + unified_memory_capable(1) + _pad2(7) + 
+    // bandwidth_to_cpu_mbps(8) + short_name(32) + short_name_len(1) + _pad3(7) + 
+    // device_index(4) + _pad4(4) = 88
+    assert!(core::mem::size_of::<ComputeDeviceRaw>() == 88);
+    // InterruptControllerInfoRaw: 
+    // kind(1) + _pad0(7) + primary_base(8) + has_secondary(1) + _pad1(7) + 
+    // secondary_base(8) + irq_line_count(4) + ipi_target_core_count(4) = 40
     assert!(core::mem::size_of::<InterruptControllerInfoRaw>() == 40);
+    // TimerInfoRaw: 
+    // kind(1) + _pad0(7) + frequency_hz(8) + supports_tickless(1) + _pad1(7) = 24
     assert!(core::mem::size_of::<TimerInfoRaw>() == 24);
-    assert!(core::mem::size_of::<PowerDomainRaw>() == 12);
+    // PowerDomainRaw: 
+    // domain_id(4) + associated_compute_device_index(4) + supports_dvfs(1) + 
+    // _pad0(3) + has_thermal_sensor(1) + _pad1(3) = 16
+    // The struct should remain 16 bytes: two u32s (8) + two bools (2) + two 3-byte pads (6) = 16
+    assert!(core::mem::size_of::<PowerDomainRaw>() == 16);
 };
 
 #[cfg(test)]
@@ -528,5 +543,22 @@ mod tests {
         m.push_compute_device(ComputeDeviceRaw::ZERO).unwrap();
         assert_eq!(m.compute_devices()[0].device_index, 0);
         assert_eq!(m.compute_devices()[1].device_index, 1);
+    }
+    #[test]
+    fn check_struct_sizes() {
+        println!(
+            "MemoryRegionRaw: {}",
+            std::mem::size_of::<MemoryRegionRaw>()
+        );
+        println!(
+            "ComputeDeviceRaw: {}",
+            std::mem::size_of::<ComputeDeviceRaw>()
+        );
+        println!(
+            "InterruptControllerInfoRaw: {}",
+            std::mem::size_of::<InterruptControllerInfoRaw>()
+        );
+        println!("TimerInfoRaw: {}", std::mem::size_of::<TimerInfoRaw>());
+        println!("PowerDomainRaw: {}", std::mem::size_of::<PowerDomainRaw>());
     }
 }
