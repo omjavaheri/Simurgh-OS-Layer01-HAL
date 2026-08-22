@@ -98,6 +98,17 @@ rustflags = [
 xbuild-x86_64  = "build -p hal-x86_64  --target targets/x86_64-hal.json"
 xbuild-arm64   = "build -p hal-arm64   --target targets/aarch64-hal.json"
 xbuild-riscv64 = "build -p hal-riscv64 --target targets/riscv64gc-hal.json"
+# ----------------------------------------------------------------------------
+# kernel-stub build aliases (appended to the existing [alias] table)
+#
+# These build the FULL bootable image for each architecture: kernel-
+# stub links in the matching hal-<arch> crate (selected automatically
+# via kernel-stub/Cargo.toml's target_arch-keyed dependency tables),
+# which in turn links in boot.S + linker.ld for that architecture.
+# ----------------------------------------------------------------------------
+xbuild-kernel-x86_64  = "build -p kernel-stub --target targets/x86_64-hal.json"
+xbuild-kernel-arm64   = "build -p kernel-stub --target targets/aarch64-hal.json"
+xbuild-kernel-riscv64 = "build -p kernel-stub --target targets/riscv64gc-hal.json"
 
 # ----------------------------------------------------------------------------
 # Host build behavior (no --target passed)
