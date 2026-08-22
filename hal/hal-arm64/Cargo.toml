@@ -39,9 +39,6 @@ bitflags     = { workspace = true }
 path = "../hal-direct"
 optional = true
 
-[build-dependencies]
-cc = "1"
-
 [features]
 default = []
 hal-direct-support = ["dep:hal-direct"]

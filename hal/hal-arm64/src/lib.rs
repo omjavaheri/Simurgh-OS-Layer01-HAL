@@ -14,6 +14,63 @@
 
 use core::panic::PanicInfo;
 
+// ============================================================================
+// Boot bootstrap assembly (formerly boot.S), embedded via global_asm!
+// — see hal-x86_64/src/lib.rs's equivalent block for the general
+// rationale (no external assembler required).
+// ============================================================================
+core::arch::global_asm!(
+    r#"
+    .section .boot.header, "a"
+
+    .section .boot.text, "ax"
+    .global _start
+    .type _start, %function
+
+_start:
+    // Step 0: drop EL2 -> EL1 if UEFI left us in EL2.
+    mrs     x1, CurrentEL
+    and     x1, x1, #0xC
+    cmp     x1, #0x8
+    b.ne    1f
+
+    mov     x1, #(1 << 31)
+    msr     hcr_el2, x1
+    msr     sctlr_el1, xzr
+    mov     x1, #0x3C5
+    msr     spsr_el2, x1
+    adr     x1, 1f
+    msr     elr_el2, x1
+    eret
+
+1:
+    // Step 1: establish a known-good stack.
+    adr     x1, __boot_stack_top
+    mov     sp, x1
+
+    // Step 2: zero .bss.
+    adr     x1, __bss_start
+    adr     x2, __bss_end
+2:  cmp     x1, x2
+    b.ge    3f
+    str     xzr, [x1], #8
+    b       2b
+3:
+
+    // Step 4: hand off to Rust. X0 still holds the UEFI memory map
+    // pointer.
+    bl      hal_arm64_rust_entry
+
+.halt_forever:
+    wfi
+    b       .halt_forever
+
+    .size _start, . - _start
+
+    .section .boot.data, "aw"
+    "#
+);
+
 pub mod compute;
 pub mod cpu;
 pub mod interrupt;
