@@ -293,15 +293,19 @@ pub extern "C" fn hal_x86_64_rust_entry(uefi_memory_map: *const u8) -> ! {
     // separate `kernel-stub` crate's linked-in symbol until the real
     // microkernel (layer 2) is implemented.
     // ------------------------------------------------------------------
+    let hal_interface = hal_core::build_interface(&hal.cpu, &hal.timer);
+
     extern "Rust" {
-        fn kernel_main(hal: X86_64Hal, boot_info: hal_core::BootInfo) -> !;
+        fn kernel_main(hal: hal_core::HalInterface, boot_info: hal_core::BootInfo) -> !;
     }
 
-    // SAFETY: `kernel_main` is provided by whichever crate this binary
-    // is ultimately linked against (kernel-stub for the current MVP
-    // phase, per 01-HAL-Layer.md section 8.3's acceptance criterion
-    // "تحویل کنترل به یک stub میکروکرنل"; the real microkernel later).
-    // Its signature is fixed by this same workspace, so both sides
-    // agree on the ABI by construction.
-    unsafe { kernel_main(hal, boot_info) }
+    // SAFETY: `hal_interface` borrows `hal.cpu`/`hal.timer`, which
+    // live in this function's own stack frame; since this function
+    // never returns and its only continuation is the equally-
+    // diverging `kernel_main` call, that frame is never popped, so
+    // the borrowed data stays valid as long as `hal_interface` could
+    // be used. `kernel_main`'s signature (hal_core::HalInterface,
+    // architecture-erased) is fixed by this workspace regardless of
+    // which hal-<arch> crate is linked in.
+    unsafe { kernel_main(hal_interface, boot_info) }
 }
