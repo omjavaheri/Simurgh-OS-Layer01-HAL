@@ -75,12 +75,6 @@ path = "../hal-direct"
 # see the `features` table below.
 optional = true
 
-[build-dependencies]
-# `cc` drives assembling boot.S with the correct target flags and
-# feeding the resulting object file to the Rust linker step, without
-# hand-rolling `as`/`ld` invocations directly in build.rs.
-cc = "1"
-
 [features]
 default = []
 # Enables hal-direct support in this architecture's build. Off by
