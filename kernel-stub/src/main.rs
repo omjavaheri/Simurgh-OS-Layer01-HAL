@@ -26,14 +26,18 @@ use hal_core::BootInfo;
 // three separately-named kernel_main functions.
 // ----------------------------------------------------------------------------
 
-#[cfg(target_arch = "x86_64")]
-type Hal = hal_x86_64::X86_64Hal;
-
+// Link-only dependencies: pull in this architecture's boot.S/_start
+// and panic_handler (via hal-<arch>'s own crate, per that crate's
+// Cargo.toml target_arch-keyed dependency), but are never referenced
+// by type from this file anymore — kernel_main now depends only on
+// hal_core::HalInterface (architecture-erased, see hal-core/src/
+// interface.rs), which is exactly the point of this refactor.
 #[cfg(target_arch = "aarch64")]
-type Hal = hal_arm64::Arm64Hal;
-
+use hal_arm64 as _;
 #[cfg(target_arch = "riscv64")]
-type Hal = hal_riscv64::Riscv64Hal;
+use hal_riscv64 as _;
+#[cfg(target_arch = "x86_64")]
+use hal_x86_64 as _;
 
 // ----------------------------------------------------------------------------
 // Minimal serial output, per architecture
@@ -137,7 +141,9 @@ mod backend {
         // layout — a scope note consistent with this being a
         // diagnostics-only shortcut, not a production driver.
         unsafe {
-            while (core::ptr::read_volatile((PL011_BASE + PL011_FR) as *const u32) & PL011_FR_TXFF) != 0 {
+            while (core::ptr::read_volatile((PL011_BASE + PL011_FR) as *const u32) & PL011_FR_TXFF)
+                != 0
+            {
                 core::hint::spin_loop();
             }
             core::ptr::write_volatile((PL011_BASE + PL011_DR) as *mut u32, byte as u32);
@@ -198,17 +204,33 @@ impl Write for SerialWriter {
 // ----------------------------------------------------------------------------
 
 #[no_mangle]
-pub extern "Rust" fn kernel_main(hal: Hal, boot_info: BootInfo) -> ! {
+pub extern "Rust" fn kernel_main(hal: hal_core::HalInterface, boot_info: BootInfo) -> ! {
     SerialWriter::init();
     let mut serial = SerialWriter;
 
     let _ = writeln!(serial, "hello from kernel");
     let _ = writeln!(serial, "---------------------------------------------");
     let _ = writeln!(serial, "boot protocol: {:?}", boot_info.protocol);
-    let _ = writeln!(serial, "cpu cores: {}", boot_info.hardware_manifest.cpu_core_count);
-    let _ = writeln!(serial, "memory regions: {}", boot_info.hardware_manifest.memory_region_count);
-    let _ = writeln!(serial, "compute devices: {}", boot_info.hardware_manifest.compute_device_count);
-    let _ = writeln!(serial, "power domains: {}", boot_info.hardware_manifest.power_domain_count);
+    let _ = writeln!(
+        serial,
+        "cpu cores: {}",
+        boot_info.hardware_manifest.cpu_core_count
+    );
+    let _ = writeln!(
+        serial,
+        "memory regions: {}",
+        boot_info.hardware_manifest.memory_region_count
+    );
+    let _ = writeln!(
+        serial,
+        "compute devices: {}",
+        boot_info.hardware_manifest.compute_device_count
+    );
+    let _ = writeln!(
+        serial,
+        "power domains: {}",
+        boot_info.hardware_manifest.power_domain_count
+    );
 
     match boot_info.validate() {
         Ok(()) => {
@@ -220,9 +242,20 @@ pub extern "Rust" fn kernel_main(hal: Hal, boot_info: BootInfo) -> ! {
     }
 
     let _ = writeln!(serial, "---------------------------------------------");
-    let _ = writeln!(serial, "kernel-stub halting (Phase 1 HAL boot test complete)");
-
-    let _ = &hal;
+    let _ = writeln!(
+        serial,
+        "hal cpu core count (via HalInterface): {}",
+        hal.core_count()
+    );
+    let _ = writeln!(
+        serial,
+        "hal timer frequency_hz (via HalInterface): {}",
+        hal.frequency_hz()
+    );
+    let _ = writeln!(
+        serial,
+        "kernel-stub halting (Phase 1 HAL boot test complete)"
+    );
 
     halt_forever();
 }
