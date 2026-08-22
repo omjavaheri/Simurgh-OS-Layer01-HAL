@@ -18,12 +18,12 @@
 
 use core::panic::PanicInfo;
 
-pub mod cpu;
-pub mod memory;
-pub mod timer;
-pub mod interrupt;
 pub mod compute;
+pub mod cpu;
+pub mod interrupt;
+pub mod memory;
 pub mod power;
+pub mod timer;
 
 #[cfg(feature = "hal-direct-support")]
 pub mod direct;
@@ -134,7 +134,14 @@ pub extern "C" fn hal_riscv64_rust_entry(hart_id: usize, dtb_phys: *const u8) ->
         // BootProtocol enum already anticipates this
         // (hal-core/src/boot.rs).
         hal_core::BootProtocol::SbiDeviceTree,
-        memory::built_hardware_manifest(&hal.memory, &hal.compute, &hal.power, &hal.cpu, &hal.interrupt, &hal.timer),
+        memory::built_hardware_manifest(
+            &hal.memory,
+            &hal.compute,
+            &hal.power,
+            &hal.cpu,
+            &hal.interrupt,
+            &hal.timer,
+        ),
         memory::current_page_table_phys(&hal.memory),
         kernel_image_phys_range,
         boot_reserved_phys_range,
@@ -146,12 +153,13 @@ pub extern "C" fn hal_riscv64_rust_entry(hart_id: usize, dtb_phys: *const u8) ->
         "hal-riscv64 constructed an internally inconsistent BootInfo"
     );
 
+    let hal_interface = hal_core::build_interface(&hal.cpu, &hal.timer);
+
     extern "Rust" {
-        fn kernel_main(hal: Riscv64Hal, boot_info: hal_core::BootInfo) -> !;
+        fn kernel_main(hal: hal_core::HalInterface, boot_info: hal_core::BootInfo) -> !;
     }
 
-    // SAFETY: same reasoning as the other two architectures'
-    // equivalent call — kernel_main's signature is fixed by this
-    // workspace, and both sides agree on it by construction.
-    unsafe { kernel_main(hal, boot_info) }
+    // SAFETY: same reasoning as hal-x86_64's equivalent call — see
+    // hal-core/src/interface.rs's build_interface doc comment.
+    unsafe { kernel_main(hal_interface, boot_info) }
 }
