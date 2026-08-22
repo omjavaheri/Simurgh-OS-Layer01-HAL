@@ -18,6 +18,51 @@
 
 use core::panic::PanicInfo;
 
+// ============================================================================
+// Boot bootstrap assembly (formerly boot.S), embedded via global_asm!
+// — see hal-x86_64/src/lib.rs's equivalent block for the general
+// rationale (no external assembler required).
+// ============================================================================
+core::arch::global_asm!(
+    r#"
+    .section .boot.header, "a"
+
+    .section .boot.text, "ax"
+    .global _start
+    .type _start, @function
+
+_start:
+    // Step 1: only hart 0 continues; others park.
+    bnez    a0, .park_secondary_hart
+
+    la      sp, __boot_stack_top
+
+    // Step 2: zero .bss.
+    la      t0, __bss_start
+    la      t1, __bss_end
+1:  bgeu    t0, t1, 2f
+    sd      zero, 0(t0)
+    addi    t0, t0, 8
+    j       1b
+2:
+
+    // Step 4: hand off to Rust. a0 = hart id, a1 = DTB pointer.
+    call    hal_riscv64_rust_entry
+
+.halt_forever:
+    wfi
+    j       .halt_forever
+
+.park_secondary_hart:
+    wfi
+    j       .park_secondary_hart
+
+    .size _start, . - _start
+
+    .section .boot.data, "aw"
+    "#
+);
+
 pub mod compute;
 pub mod cpu;
 pub mod interrupt;
