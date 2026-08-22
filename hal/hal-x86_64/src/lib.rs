@@ -34,6 +34,52 @@
 
 use core::panic::PanicInfo;
 
+// ============================================================================
+// Boot bootstrap assembly (formerly boot.S), embedded via global_asm!
+// so this crate builds with rustc/LLVM alone — no external assembler
+// (clang/gcc) required. Content and behavior are unchanged from the
+// original standalone boot.S; see the step-by-step comments below.
+// ============================================================================
+core::arch::global_asm!(
+    r#"
+    .section .boot.header, "a"
+    // (intentionally empty for the UEFI-stub-only MVP boot path)
+
+    .section .boot.text, "ax"
+    .global _start
+    .type _start, @function
+
+_start:
+    // Step 1: establish a known-good stack.
+    lea     rsp, [rip + __boot_stack_top]
+
+    // Step 2: zero .bss.
+    lea     rdi, [rip + __bss_start]
+    lea     rcx, [rip + __bss_end]
+    sub     rcx, rdi
+    xor     al, al
+    cld
+    rep stosb
+
+    // Step 3: minimal ABI environment (DF already clear from above).
+    cld
+
+    // Step 4: hand off to Rust. RDI still holds the UEFI memory map
+    // pointer passed in by the bootloader stub.
+    call    hal_x86_64_rust_entry
+
+.halt_forever:
+    cli
+    hlt
+    jmp     .halt_forever
+
+    .size _start, . - _start
+
+    .section .boot.data, "aw"
+    // (intentionally empty for the UEFI-stub-only MVP boot path)
+    "#
+);
+
 // ----------------------------------------------------------------------------
 // Submodules — one per hal-core responsibility area (01-HAL-Layer.md
 // section 3), each implementing the matching hal-core trait for real
@@ -270,7 +316,14 @@ pub extern "C" fn hal_x86_64_rust_entry(uefi_memory_map: *const u8) -> ! {
 
     let boot_info = hal_core::BootInfo::new(
         hal_core::BootProtocol::Uefi,
-        memory::built_hardware_manifest(&hal.memory, &hal.compute, &hal.power, &hal.cpu, &hal.interrupt, &hal.timer),
+        memory::built_hardware_manifest(
+            &hal.memory,
+            &hal.compute,
+            &hal.power,
+            &hal.cpu,
+            &hal.interrupt,
+            &hal.timer,
+        ),
         memory::current_page_table_phys(&hal.memory),
         kernel_image_phys_range,
         boot_reserved_phys_range,
