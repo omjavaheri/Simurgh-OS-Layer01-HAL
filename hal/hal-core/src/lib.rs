@@ -115,6 +115,8 @@ pub mod power;
 /// handed from HAL to the microkernel.
 pub mod boot;
 
+pub mod interface;
+
 // ----------------------------------------------------------------------------
 // Convenience re-exports at the crate root
 //
@@ -140,6 +142,8 @@ pub use compute::{ComputeDevice, ComputeDeviceDiscovery, ComputeKind, VendorId};
 pub use power::{DomainsAboveThresholdIter, DvfsRequest, DvfsState, MilliCelsius, PowerDomain, PowerThermal};
 
 pub use boot::{BootInfo, BootProtocol};
+
+pub use interface::{build_interface, HalInterface};
 
 // ----------------------------------------------------------------------------
 // Aggregate trait
