@@ -329,7 +329,7 @@ core::arch::global_asm!(
     .macro isr_stub vector
     .global isr_stub_\vector
     isr_stub_\vector:
-        push {vector}
+        push $\vector
         jmp isr_common_trampoline
     .endm
 
@@ -588,7 +588,7 @@ impl CpuAbstraction<{ crate::X86_64_CONTEXT_BYTES }> for Cpu {
                 "mov rax, [{to_ptr} + 0x38]",
                 "jmp rax",
 
-                "1:",
+                "2:",
                 from_ptr = in(reg) from_ctx as *mut X86_64Context,
                 to_ptr = in(reg) to_ctx as *const X86_64Context,
                 out("rax") _,

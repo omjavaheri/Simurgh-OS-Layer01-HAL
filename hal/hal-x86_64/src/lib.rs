@@ -229,7 +229,7 @@ pub extern "C" fn hal_x86_64_rust_entry(uefi_memory_map: *const u8) -> ! {
     // Step 3: bring up the timer (section 3.3) and interrupt controller
     // (section 3.4) so the rest of boot can rely on both being usable.
     // ------------------------------------------------------------------
-    let timer = timer::Timer::new();
+    let timer = timer::Timer::new(timer::HpetPresence { present: true });
     let interrupt = interrupt::InterruptCtrl::new();
 
     // ------------------------------------------------------------------
@@ -239,7 +239,7 @@ pub extern "C" fn hal_x86_64_rust_entry(uefi_memory_map: *const u8) -> ! {
     // install profile — profile policy is applied later, in layer 4.
     // ------------------------------------------------------------------
     let compute = compute::ComputeDiscovery::new();
-    let power = power::PowerThermalImpl::new();
+    let power = power::PowerThermalImpl::new(&compute);
 
     let hal = X86_64Hal {
         cpu,

@@ -78,7 +78,7 @@ _start:
     # Rust's `static` items with no explicit initializer (and hal-core/
     # hal-x86_64's own zero-initialized buffers, e.g. any boot-time
     # HardwareManifestRaw storage kept as `static mut`) are only sound
-    # if this memory actually reads as zero — the ELF loader is not
+    /* if this memory actually reads as zero — the ELF loader is not */
     # guaranteed to have done this for us (a `.bss` section by
     # definition occupies no space in the file image), so we do it
     # explicitly here before any Rust code touches such statics.

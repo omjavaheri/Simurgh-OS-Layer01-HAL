@@ -480,13 +480,12 @@ impl Memory {
                 // reported regions.
                 break;
             }
-            regions[region_count] = MemoryRegionRaw {
-                base_addr: descriptor.physical_start,
-                length_bytes: descriptor.number_of_pages * PAGE_SIZE as u64,
-                kind: classify_uefi_type(descriptor.ty),
-                behind_iommu: false, // refined below, once IOMMU presence is known
-                ..MemoryRegionRaw::ZERO
-            };
+            regions[region_count] = MemoryRegionRaw::new(
+                descriptor.physical_start,
+                descriptor.number_of_pages * PAGE_SIZE as u64,
+                classify_uefi_type(descriptor.ty),
+                false, // later refined
+            );
             region_count += 1;
         }
 
@@ -667,22 +666,20 @@ pub fn built_hardware_manifest(
         let _ = manifest.push_power_domain(*domain);
     }
 
-    manifest.interrupt_controller = InterruptControllerInfoRaw {
-        kind: interrupt.detected_kind(),
-        primary_base: interrupt.primary_base(),
-        has_secondary: interrupt.secondary_base().is_some(),
-        secondary_base: interrupt.secondary_base().unwrap_or(0),
-        irq_line_count: interrupt.irq_line_count(),
-        ipi_target_core_count: interrupt.ipi_target_core_count(),
-        ..InterruptControllerInfoRaw::ZERO
-    };
+    manifest.interrupt_controller = InterruptControllerInfoRaw::new(
+        interrupt.detected_kind(),
+        interrupt.primary_base(),
+        interrupt.secondary_base().is_some(),
+        interrupt.secondary_base().unwrap_or(0),
+        interrupt.irq_line_count(),
+        interrupt.ipi_target_core_count(),
+    );
 
-    manifest.timer = TimerInfoRaw {
-        kind: timer.detected_kind(),
-        frequency_hz: timer.frequency_hz(),
-        supports_tickless: timer.supports_tickless(),
-        ..TimerInfoRaw::ZERO
-    };
+    manifest.timer = TimerInfoRaw::new(
+        timer.detected_kind(),
+        timer.frequency_hz(),
+        timer.supports_tickless(),
+    );
 
     // Fold IOMMU presence into the CPU feature flags too, per cpu.rs's
     // `mark_iommu_capable` doc comment on why CPUID alone cannot report

@@ -118,6 +118,20 @@ impl MemoryRegionRaw {
         behind_iommu: false,
         _reserved: [0; 6],
     };
+    pub fn new(
+        base_addr: u64,
+        length_bytes: u64,
+        kind: MemoryRegionKindRaw,
+        behind_iommu: bool,
+    ) -> Self {
+        Self {
+            base_addr,
+            length_bytes,
+            kind,
+            behind_iommu,
+            _reserved: [0; 6],
+        }
+    }
 }
 
 // ============================================================================
@@ -263,6 +277,25 @@ impl InterruptControllerInfoRaw {
         irq_line_count: 0,
         ipi_target_core_count: 0,
     };
+    pub fn new(
+        kind: InterruptControllerKindRaw,
+        primary_base: u64,
+        has_secondary: bool,
+        secondary_base: u64,
+        irq_line_count: u32,
+        ipi_target_core_count: u32,
+    ) -> Self {
+        Self {
+            kind,
+            _pad0: [0; 7],
+            primary_base,
+            has_secondary,
+            _pad1: [0; 7],
+            secondary_base,
+            irq_line_count,
+            ipi_target_core_count,
+        }
+    }
 }
 
 // ============================================================================
@@ -308,6 +341,15 @@ impl TimerInfoRaw {
         supports_tickless: false,
         _pad1: [0; 7],
     };
+    pub fn new(kind: TimerKindRaw, frequency_hz: u64, supports_tickless: bool) -> Self {
+        Self {
+            kind,
+            _pad0: [0; 7],
+            frequency_hz,
+            supports_tickless,
+            _pad1: [0; 7],
+        }
+    }
 }
 
 // ============================================================================
@@ -352,6 +394,21 @@ impl PowerDomainRaw {
         has_thermal_sensor: false,
         _pad1: [0; 3],
     };
+    pub fn new(
+        domain_id: u32,
+        associated_compute_device_index: u32,
+        supports_dvfs: bool,
+        has_thermal_sensor: bool,
+    ) -> Self {
+        Self {
+            domain_id,
+            associated_compute_device_index,
+            supports_dvfs,
+            _pad0: [0; 3],
+            has_thermal_sensor,
+            _pad1: [0; 3],
+        }
+    }
 }
 
 // ============================================================================

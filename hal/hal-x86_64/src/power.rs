@@ -127,13 +127,12 @@ impl PowerThermalImpl {
         let mut domains = [PowerDomainRaw::ZERO; MAX_POWER_DOMAINS];
         let mut domain_count = 0usize;
 
-        domains[0] = PowerDomainRaw {
-            domain_id: CPU_PACKAGE_DOMAIN_ID,
-            associated_compute_device_index: PowerDomainRaw::NO_ASSOCIATED_DEVICE,
-            supports_dvfs: rapl_supported,
-            has_thermal_sensor: true, // IA32_THERM_STATUS is present on every baseline target
-            ..PowerDomainRaw::ZERO
-        };
+        domains[0] = PowerDomainRaw::new(
+            CPU_PACKAGE_DOMAIN_ID,
+            PowerDomainRaw::NO_ASSOCIATED_DEVICE,
+            rapl_supported,
+            true, // IA32_THERM_STATUS is present on every baseline target
+        );
         domain_count += 1;
 
         for device in compute.enumerate_compute_devices() {
@@ -141,16 +140,12 @@ impl PowerThermalImpl {
                 break; // truncate-and-continue, per hal-manifest's
                 // push_power_domain capacity rationale
             }
-            domains[domain_count] = PowerDomainRaw {
-                domain_id: domain_count as u32,
-                associated_compute_device_index: device.device_index,
-                // Per module docs: no vendor-specific power management
-                // implemented yet for discovered GPU/NPU/TPU devices in
-                // this MVP phase.
-                supports_dvfs: false,
-                has_thermal_sensor: false,
-                ..PowerDomainRaw::ZERO
-            };
+            domains[domain_count] = PowerDomainRaw::new(
+                domain_count as u32,
+                device.device_index,
+                false, // supports_dvfs
+                false, // has_thermal_sensor
+            );
             domain_count += 1;
         }
 
